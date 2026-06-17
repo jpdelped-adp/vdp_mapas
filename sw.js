@@ -1,9 +1,9 @@
-// VDP Maps — Service Worker v4
+// VDP Maps — Service Worker v5
 // HTML: network-first (siempre actualizado cuando hay internet)
 // Assets JS/CSS/iconos: cache-first (rápido, cambian poco)
 // Tiles mapa: network-first + se guardan para offline
 
-const CACHE = 'vdp-maps-v4';
+const CACHE = 'vdp-maps-v5';
 
 const STATIC_ASSETS = [
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
