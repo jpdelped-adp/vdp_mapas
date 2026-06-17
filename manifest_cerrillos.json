@@ -1,0 +1,25 @@
+{
+  "name": "Cerrillos VDP 2026",
+  "short_name": "Cerrillos",
+  "description": "Mapa interactivo de cuarteles — Viña del Pedregal",
+  "start_url": "./Mapa_Cerrillos_VDP_2026_movil.html",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#1e5028",
+  "theme_color": "#c8a96e",
+  "lang": "es",
+  "icons": [
+    {
+      "src": "icon-cer-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-cer-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
