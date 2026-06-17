@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<link rel="manifest" href="manifest_st.json">
+<meta name="theme-color" content="#c8a96e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VDP 2026">
+<link rel="apple-touch-icon" href="icon-st-192.png">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Santa Teresa VDP 2026</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Montserrat:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+// ── PWA: registrar Service Worker ──────────────────────────────────────────
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('./sw.js')
+      .then(r=>console.log('SW registrado:',r.scope))
+      .catch(e=>console.warn('SW error:',e));
+  });
+}
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;height:100dvh;overflow:hidden;background:#0d0d0d;color:#fbfbf9;font-family:'Montserrat',sans-serif}
+#shell{display:flex;flex-direction:column;height:100dvh}
+#hdr{background:linear-gradient(180deg,#080808,#141414);border-bottom:1px solid #222;padding:8px 14px;flex-shrink:0}
+#hdr h1{font-family:'Cormorant Garamond',serif;font-size:15px;letter-spacing:2px;text-transform:uppercase}
+#hdr .sub{font-size:8px;letter-spacing:2px;color:#9a8060;text-transform:uppercase;margin-top:2px}
+#tbar{display:flex;background:#0a0a0a;border-bottom:1px solid #1e1e1e;flex-shrink:0}
+.tbtn{flex:1;background:#111;color:#777;border:none;border-right:1px solid #1e1e1e;
+  padding:10px 4px;font-family:'Montserrat',sans-serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;cursor:pointer}
+.tbtn:last-child{border-right:none}
+.tbtn.on{background:#c8a96e;color:#0d0d0d;font-weight:700}
+#content{display:flex;flex:1;overflow:hidden;min-height:0}
+#leg{width:135px;flex-shrink:0;background:#0a0a0a;border-right:1px solid #1e1e1e;padding:10px 9px;overflow-y:auto}
+#leg h3{font-family:'Cormorant Garamond',serif;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#c8a96e;margin-bottom:8px;border-bottom:1px solid #2a2a2a;padding-bottom:5px}
+.li{display:flex;align-items:center;gap:6px;margin:3px 0;font-size:9px;color:#aaa}
+.ls{width:13px;height:9px;border-radius:2px;flex-shrink:0}
+#mapwrap{flex:1;position:relative;min-height:0}
+#map{position:absolute;inset:0}
+.leaflet-container{background:#1a1a1a}
+.leaflet-popup-content-wrapper{background:#111;border:1px solid #2a2a2a;border-radius:6px;color:#fbfbf9;box-shadow:0 4px 16px rgba(0,0,0,.8)}
+.leaflet-popup-tip{background:#111}
+.pnombre{font-family:'Cormorant Garamond',serif;font-size:15px;font-weight:600;color:#c8a96e;margin-bottom:4px}
+.psub{font-size:9px;color:#c8a96e;letter-spacing:0.5px;margin-bottom:6px;font-style:italic}
+.pdiv{border-top:1px solid #2a2a2a;margin:6px 0}
+.prow{display:flex;justify-content:space-between;gap:10px;font-size:10px;color:#aaa;margin:2px 0}
+.prow strong{color:#fbfbf9}
+.prow2{font-size:9px;color:#aaa;margin:2px 0}
+.prow2 span{color:#666}
+.pobs{font-size:9px;color:#9a8060;margin-top:4px;font-style:italic}
+.qlabel{font-family:'Montserrat',sans-serif;font-size:8px;font-weight:700;letter-spacing:0.6px;
+  color:#fff;text-shadow:0 0 4px #000,0 0 7px #000,1px 1px 0 #000,-1px -1px 0 #000;
+  white-space:nowrap;transform:translate(-50%,-50%);display:block;pointer-events:none;text-transform:uppercase;line-height:1;
+  position:absolute;transform:translate(-50%,-50%);text-align:center}
+#fabs{position:absolute;right:10px;bottom:30px;z-index:1000;display:flex;flex-direction:column;gap:9px}
+.fab{width:46px;height:46px;border-radius:10px;background:rgba(17,17,17,0.92);border:1.5px solid #444;color:#c8a96e;
+  font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;
+  box-shadow:0 3px 14px rgba(0,0,0,.85);user-select:none;touch-action:manipulation;
+  -webkit-tap-highlight-color:rgba(0,0,0,0)}
+.fab:active{background:#222}
+/* Fullscreen CSS fallback */
+body.fs #hdr,body.fs #tbar,body.fs #leg{display:none!important}
+body.fs #content{height:100dvh}
+:fullscreen #hdr,:fullscreen #tbar,:fullscreen #leg{display:none!important}
+:fullscreen #content{height:100dvh}
+:-webkit-full-screen #hdr,:-webkit-full-screen #tbar,:-webkit-full-screen #leg{display:none!important}
+:-webkit-full-screen #content{height:100dvh}
+.rkg-cb{margin-right:4px;cursor:pointer;accent-color:#3a8fc0;width:13px;height:13px;vertical-align:middle;}
+.rkg-ctrl{margin-bottom:6px;display:flex;gap:4px;}
+.rkg-ctrl button{flex:1;font-size:10px;padding:3px 5px;background:#2d4a6b;color:#fff;border:none;border-radius:3px;cursor:pointer;}
+.rkg-ctrl button:hover{background:#3a8fc0;}
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="hdr">
+    <h1>Santa Teresa &#9670; VDP 2026</h1>
+    <div class="sub">Vi&#241;a del Pedregal &middot; 41 cuarteles</div>
+  </div>
+  <div id="tbar">
+    <button class="tbtn on" id="btn-prod" onclick="setMode('prod')">&#127807; Producci&#243;n</button>
+    <button class="tbtn" id="btn-plantas" onclick="setMode('plantas')">&#127793; % Plantas</button>
+    <button class="tbtn" id="btn-riego" onclick="setMode('riego')">&#128167; Riego</button>
+    <button class="tbtn" id="btn-poda" onclick="setMode('poda')">&#9986; Poda</button>
+    <button class="tbtn" id="btn-ckg" onclick="setMode('ckg')">&#127807; Cos kg/pl</button>
+    <button class="tbtn" id="btn-var" onclick="setMode('var')">&#127815; Variedad</button>
+    <button class="tbtn" id="btn-rkg" onclick="setMode('rkg')">&#128202; Rangos prod</button>
+  </div>
+  <div id="content">
+    <div id="leg">
+      <h3 id="leg-title">kg / ha</h3>
+      <div id="leg-prod"><div class="li"><div class="ls" style="background:#b62615"></div><span>3-4 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#bc3719"></div><span>4-5 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#c2481d"></div><span>5-6 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#c85a21"></div><span>6-7 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#cd6b25"></div><span>7-8 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#d27b28"></div><span>8-9 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#d4882c"></div><span>9-10 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#d69630"></div><span>10-11 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#d8a334"></div><span>11-12 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#dab038"></div><span>12-13 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#dcbe3c"></div><span>13-14 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#cabd3f"></div><span>14-15 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#b9bc43"></div><span>15-16 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#a8bb47"></div><span>16-17 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#97ba4b"></div><span>17-18 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#86b94f"></div><span>18-19 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#73b14d"></div><span>19-20 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#60a649"></div><span>20-21 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#4d9c45"></div><span>21-22 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#3a9141"></div><span>22-23 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#27873d"></div><span>23-24 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#1e823c"></div><span>24-25 t/ha</span></div>
+<div class="li"><div class="ls" style="background:#444;border:1px solid #555"></div><span>Sin dato</span></div></div>
+    <div id="leg-plantas" style="display:none"><div class="li"><div class="ls" style="background:#1e823c"></div><span>&gt; 100%</span></div><div class="li"><div class="ls" style="background:#288737"></div><span>95–100%</span></div><div class="li"><div class="ls" style="background:#3d9341"></div><span>90–95%</span></div><div class="li"><div class="ls" style="background:#67a848"></div><span>85–90%</span></div><div class="li"><div class="ls" style="background:#abbb46"></div><span>80–85%</span></div><div class="li"><div class="ls" style="background:#cdba3e"></div><span>75–80%</span></div><div class="li"><div class="ls" style="background:#daa538"></div><span>70–75%</span></div><div class="li"><div class="ls" style="background:#d57f2b"></div><span>65–70%</span></div><div class="li"><div class="ls" style="background:#cf6224"></div><span>60–65%</span></div><div class="li"><div class="ls" style="background:#ca5022"></div><span>55–60%</span></div><div class="li"><div class="ls" style="background:#bf371b"></div><span>&lt; 55%</span></div><div class="li"><div class="ls" style="background:#444"></div><span>Sin dato</span></div></div>
+    <div id="leg-riego" style="display:none"><div class="li"><div class="ls" style="background:#2196f3"></div><span>Tecnif. 4lts/hora</span></div><div class="li"><div class="ls" style="background:#444"></div><span>Sin dato</span></div></div>
+    <div id="leg-poda" style="display:none"><div class="li"><div class="ls" style="background:#1e823c"></div><span>&gt; 1.00 kg/pl</span></div><div class="li"><div class="ls" style="background:#2c8939"></div><span>0.80–1.00 kg/pl</span></div><div class="li"><div class="ls" style="background:#71a644"></div><span>0.65–0.80 kg/pl</span></div><div class="li"><div class="ls" style="background:#c2af3f"></div><span>0.50–0.65 kg/pl</span></div><div class="li"><div class="ls" style="background:#d7872e"></div><span>0.35–0.50 kg/pl</span></div><div class="li"><div class="ls" style="background:#c4481d"></div><span>0.20–0.35 kg/pl</span></div><div class="li"><div class="ls" style="background:#b62615"></div><span>&lt; 0.20 kg/pl</span></div><div class="li"><div class="ls" style="background:#444"></div><span>Sin dato</span></div></div>
+    <div id="leg-ckg" style="display:none"><div class="li"><div class="ls" style="background:#25853d"></div><span>> 5.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#3a9141"></div><span>4.5–5.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#97ba4b"></div><span>3.5–4.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#d7c53a"></div><span>2.5–3.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#d27b28"></div><span>1.5–2.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#bc3719"></div><span>< 1.5 kg/pl</span></div><div class="li"><div class="ls" style="background:#444"></div><span>Sin dato</span></div></div>
+    <div id="leg-var" style="display:none"><div class="li"><div class="ls" style="background:#C62828"></div><span>Cabernet Sauvignon</span></div><div class="li"><div class="ls" style="background:#F57F17"></div><span>Carmenere</span></div><div class="li"><div class="ls" style="background:#0D47A1"></div><span>Merlot</span></div><div class="li"><div class="ls" style="background:#4527A0"></div><span>Syrah</span></div><div class="li"><div class="ls" style="background:#37474F"></div><span>Tintorera</span></div></div>
+    <div id="leg-rkg" style="display:none"><div class="rkg-ctrl"><button onclick="selectAllRangos(true)">Todos</button><button onclick="selectAllRangos(false)">Ninguno</button></div><div id="rkg-items"></div></div>
+    </div>
+    <div id="mapwrap">
+      <div id="map"></div>
+      <div id="fabs">
+        <div class="fab" id="fab-gps" onclick="locateMe()">&#128205;</div>
+        <div class="fab" id="fab-fs"  onclick="toggleFS()">&#x26F6;</div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+const geojson = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"nombre":"C1 CAB C46","kg_ha":12481.0,"ha":9.56,"tn":119.32,"color":"#dab639","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes 13.89%","poda_kg_pl":0.432,"cosecha_kg_pl":2.936,"plantas_ctrl":86.11},"geometry":{"type":"Polygon","coordinates":[[[-71.84507426184116,-35.7685064234784],[-71.84506907530145,-35.76849925661832],[-71.84284285974137,-35.76538992175088],[-71.84288441983091,-35.76532455366073],[-71.84469123011864,-35.76380809959058],[-71.84479024727355,-35.76387729470222],[-71.84624802861723,-35.76586732796387],[-71.84696957915062,-35.76690185737579],[-71.84699101385264,-35.76693110022915],[-71.84690226805539,-35.76699373188418],[-71.84653368186822,-35.7672421176968],[-71.84595424294332,-35.76773157388648],[-71.84507426184116,-35.7685064234784]]]}},{"type":"Feature","properties":{"nombre":"C1 CAR","kg_ha":6515.0,"ha":7.42,"tn":48.34,"color":"#ca6223","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  12%","poda_kg_pl":0.448,"cosecha_kg_pl":1.508,"plantas_ctrl":88.0},"geometry":{"type":"Polygon","coordinates":[[[-71.85165402684184,-35.77317108880381],[-71.85139288385597,-35.77320017787692],[-71.85065643150413,-35.77325914264983],[-71.84859068150931,-35.77342616739027],[-71.84813381203874,-35.77280030203475],[-71.84759946437384,-35.7720940011598],[-71.84761050288186,-35.77191131583608],[-71.8476124655379,-35.77184330753725],[-71.84840042942986,-35.77117005394467],[-71.84953802686161,-35.77020950450258],[-71.85028405976317,-35.77118977705249],[-71.8505907276323,-35.77166538906116],[-71.85038158597399,-35.77183131194254],[-71.85057070664615,-35.77208794212512],[-71.85078589349617,-35.77196837563675],[-71.85165402684184,-35.77317108880381]]]}},{"type":"Feature","properties":{"nombre":"C1 SYR 174","kg_ha":15059.0,"ha":4.57,"tn":68.82,"color":"#b7bb43","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  24.03%","poda_kg_pl":0.346,"cosecha_kg_pl":4.063,"plantas_ctrl":75.97},"geometry":{"type":"Polygon","coordinates":[[[-71.84266221203261,-35.76285743463499],[-71.84298001177574,-35.76283273904497],[-71.84389296925772,-35.76275390833154],[-71.84399028692219,-35.76277545178453],[-71.84428450505338,-35.76315002983957],[-71.84465758212467,-35.76368489533358],[-71.84462606773222,-35.76378579565851],[-71.84400288398675,-35.76431177690895],[-71.84282209516472,-35.76529979701283],[-71.84276930432823,-35.76529627648309],[-71.84199689260542,-35.76414607592233],[-71.84167562372076,-35.76370285677904],[-71.84266221203261,-35.76285743463499]]]}},{"type":"Feature","properties":{"nombre":"C1 SYR 300","kg_ha":10831.0,"ha":0.65,"tn":7.039999999999999,"color":"#d7a033","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  24.03%","poda_kg_pl":0.346,"cosecha_kg_pl":2.961,"plantas_ctrl":75.97},"geometry":{"type":"Polygon","coordinates":[[[-71.84167562372076,-35.76370285677904],[-71.84118459500763,-35.76302542821963],[-71.84118806750537,-35.76295857645679],[-71.84187712156107,-35.76291843877001],[-71.84266221203261,-35.76285743463499],[-71.84167562372076,-35.76370285677904]]]}},{"type":"Feature","properties":{"nombre":"C1 TINT","kg_ha":26744.0,"ha":0.1806,"tn":4.83,"color":"#1e823c","variedad":"Tintorera","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes","poda_kg_pl":null,"cosecha_kg_pl":5.416,"plantas_ctrl":97.9},"geometry":{"type":"Polygon","coordinates":[[[-71.83442458577683,-35.77414959273389],[-71.83404698147399,-35.77447565477645],[-71.83347918063566,-35.77447235193902],[-71.8335124891667,-35.77442148926054],[-71.83369152492622,-35.77427180498057],[-71.83380886043885,-35.77419749907455],[-71.83388911776063,-35.77415029841656],[-71.83423153415612,-35.77415176143888],[-71.83442458577683,-35.77414959273389]]]}},{"type":"Feature","properties":{"nombre":"C10 CAB C46","kg_ha":11249.0,"ha":3.2626,"tn":36.7,"color":"#d8a634","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  6.94%","poda_kg_pl":0.457,"cosecha_kg_pl":2.419,"plantas_ctrl":93.06},"geometry":{"type":"Polygon","coordinates":[[[-71.82761838321753,-35.76400321486359],[-71.82671489784788,-35.76476370662484],[-71.82585215487428,-35.76551846462706],[-71.82559011297204,-35.76572016629314],[-71.82547098213612,-35.76566096646121],[-71.82513877780144,-35.76536831136372],[-71.82423044111434,-35.76466949853874],[-71.82372447391181,-35.7642616903651],[-71.82393411641364,-35.76423291820057],[-71.8256560568234,-35.76411136799319],[-71.8269929466925,-35.76402269742931],[-71.82761838321753,-35.76400321486359]]]}},{"type":"Feature","properties":{"nombre":"C11 CAB 341","kg_ha":12910.0,"ha":8.6854,"tn":112.13,"color":"#dbbc3b","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  5.58%","poda_kg_pl":0.404,"cosecha_kg_pl":2.732,"plantas_ctrl":94.42},"geometry":{"type":"Polygon","coordinates":[[[-71.83059202337307,-35.77013489142848],[-71.83092191859842,-35.77040254608698],[-71.83132852368901,-35.77072920070804],[-71.83163821932521,-35.77092221316952],[-71.83204495679435,-35.77125243904969],[-71.83303404324276,-35.77203751676993],[-71.8334859162143,-35.77240244289352],[-71.83348807326716,-35.77246320018426],[-71.83343233028322,-35.7725002840167],[-71.83328365816722,-35.77263971345288],[-71.83320248985962,-35.77270243528436],[-71.83312056020046,-35.77274371331089],[-71.83288296206729,-35.77297466248918],[-71.83259286260137,-35.7732104257116],[-71.83200852657615,-35.77368920154166],[-71.8319299662896,-35.7737017837721],[-71.83187619773747,-35.7736708583101],[-71.83154628521726,-35.77340320716186],[-71.83087394400317,-35.77288608157493],[-71.83027768641222,-35.77241008354408],[-71.82924813768899,-35.7715973196028],[-71.8287194547678,-35.77116979976931],[-71.82828578478795,-35.77082231136826],[-71.82831884207178,-35.77076430207153],[-71.82843998820441,-35.7707149503982],[-71.82863016134608,-35.77063178128937],[-71.82896092139028,-35.7705524564082],[-71.8292831632343,-35.77048048508309],[-71.82940004954966,-35.77043480970435],[-71.82952253911525,-35.77029957841317],[-71.82993487304711,-35.7699214429737],[-71.83011036578698,-35.76979569382726],[-71.83016750258689,-35.76979792520949],[-71.83030801200105,-35.76992338645195],[-71.83059202337307,-35.77013489142848]]]}},{"type":"Feature","properties":{"nombre":"C12 CAB 341","kg_ha":12786.0,"ha":3.403,"tn":43.51,"color":"#dbbb3b","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  4.57%","poda_kg_pl":0.194,"cosecha_kg_pl":2.677,"plantas_ctrl":95.43},"geometry":{"type":"Polygon","coordinates":[[[-71.828676562797,-35.76859718957654],[-71.82951312331663,-35.76929109875279],[-71.83001447105093,-35.76969064344762],[-71.83004281086015,-35.76974720734643],[-71.83001763899087,-35.7697799927132],[-71.82991117206448,-35.76987192372416],[-71.82953316140632,-35.77022778921215],[-71.82944722679603,-35.77027988988895],[-71.8293121655971,-35.77030810843085],[-71.82885085748416,-35.77041912299708],[-71.82864626218556,-35.77046686235126],[-71.82850318938031,-35.77051673030427],[-71.82836888726561,-35.77056639166815],[-71.82825638554571,-35.77061196286853],[-71.82805946727801,-35.77075252142359],[-71.82777032703784,-35.77089167278241],[-71.82767975180377,-35.77093672751239],[-71.82764918018366,-35.77094102380983],[-71.82759292885487,-35.77096380910546],[-71.82755873143422,-35.77098965243123],[-71.827498221187,-35.77101611484751],[-71.82744121010818,-35.77101745620963],[-71.82740148768436,-35.77101123687329],[-71.82739655004562,-35.77087185173145],[-71.82735273073423,-35.77062607265724],[-71.82731616341326,-35.77033719945388],[-71.82728499461838,-35.77007681487374],[-71.82735739449673,-35.77001430327878],[-71.82745585350918,-35.7699440246194],[-71.82757020805109,-35.76982687144193],[-71.8276814429972,-35.76974556113345],[-71.82780844662554,-35.76961380228449],[-71.82788472457665,-35.76953689130496],[-71.827918034936,-35.76948603007322],[-71.82795922964337,-35.7694099446026],[-71.82799178015483,-35.76933763949112],[-71.82805566133469,-35.76928248187058],[-71.828106892845,-35.76924192972908],[-71.8282274334622,-35.76903103334606],[-71.8284932074654,-35.76858362037873],[-71.82857578206561,-35.76853994571658],[-71.82861285416544,-35.76855397714399],[-71.828676562797,-35.76859718957654]]]}},{"type":"Feature","properties":{"nombre":"C13 CAB 341","kg_ha":10881.0,"ha":1.8868,"tn":20.53,"color":"#d7a133","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Francoarenoso","obs":"plantas faltantes  4.08%","poda_kg_pl":0.396,"cosecha_kg_pl":2.265,"plantas_ctrl":95.92},"geometry":{"type":"Polygon","coordinates":[[[-71.82838915536428,-35.76843404863449],[-71.82831631682005,-35.7685460523769],[-71.82822573348427,-35.76867337766811],[-71.82816459654157,-35.76880597152329],[-71.82804572670878,-35.76896078953541],[-71.82766950882595,-35.76949128182805],[-71.82752579414804,-35.76966754951965],[-71.82740407333934,-35.76974195247458],[-71.82730062480967,-35.76981592543133],[-71.8272405703551,-35.76977262631168],[-71.82723810618299,-35.76959979800697],[-71.8271363985018,-35.76900006950078],[-71.82705292740302,-35.76829558388676],[-71.82692454455358,-35.76725234348689],[-71.82697872748889,-35.7672331841609],[-71.8270541356966,-35.76729698788822],[-71.82713706376838,-35.76736657626306],[-71.82735545326527,-35.76754326731277],[-71.82756298601247,-35.76772319417573],[-71.82804039050798,-35.76808754139714],[-71.82838953830164,-35.76834163490215],[-71.82840992111238,-35.76840077113834],[-71.82838915536428,-35.76843404863449]]]}},{"type":"Feature","properties":{"nombre":"C2 CAB C46","kg_ha":14571.0,"ha":9.56,"tn":139.3,"color":"#c0bc41","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes 12.91%","poda_kg_pl":0.375,"cosecha_kg_pl":3.374,"plantas_ctrl":87.09},"geometry":{"type":"Polygon","coordinates":[[[-71.84092041535035,-35.76710875778272],[-71.84091376089582,-35.76700399136323],[-71.84138247818026,-35.76660898500311],[-71.84221470145862,-35.76590491731813],[-71.84262337182103,-35.76554948047108],[-71.84274526027463,-35.76543928907085],[-71.84279856028364,-35.76545710534104],[-71.84336231169122,-35.76625215803195],[-71.84377192305605,-35.76682670018618],[-71.84416581954788,-35.76737061252058],[-71.84455035677018,-35.76789805254371],[-71.84496884112588,-35.76847476471999],[-71.84495401752265,-35.76855142370653],[-71.84495253448095,-35.76857713131152],[-71.84467518318684,-35.76881669173269],[-71.84445944846392,-35.76900302984339],[-71.84425222863923,-35.769182012176],[-71.84392347337315,-35.76946694750261],[-71.84340026814937,-35.7699368947717],[-71.84319355347597,-35.77012256552734],[-71.84315094882035,-35.77016083280775],[-71.84305183108613,-35.77008325496298],[-71.84275934747703,-35.76967584497798],[-71.8423395892991,-35.76908365500503],[-71.84228974866186,-35.76901925651426],[-71.84134940882458,-35.76767331174288],[-71.84107283268516,-35.76730129048547],[-71.84092041535035,-35.76710875778272]]]}},{"type":"Feature","properties":{"nombre":"C2 MER","kg_ha":9991.0,"ha":10.58,"tn":105.70999999999998,"color":"#d5952f","variedad":"Merlot","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes 11.77%","poda_kg_pl":0.462,"cosecha_kg_pl":2.281,"plantas_ctrl":88.23},"geometry":{"type":"Polygon","coordinates":[[[-71.84507426184116,-35.7685064234784],[-71.84595424294332,-35.76773157388648],[-71.84653368186822,-35.7672421176968],[-71.84690226805539,-35.76699373188418],[-71.84699101385264,-35.76693110022914],[-71.84771695035188,-35.76792146230144],[-71.84807098412497,-35.76824930472893],[-71.84833527523935,-35.76852204209386],[-71.84847993956508,-35.76864022912815],[-71.84904555640004,-35.76948528592076],[-71.84937737354034,-35.76992811279054],[-71.84946993941628,-35.77014411103877],[-71.84787261948838,-35.77150544137328],[-71.84767599642669,-35.77132529245515],[-71.84755216823284,-35.77134014982084],[-71.8474625474655,-35.77128861935105],[-71.84729053113313,-35.77138808010755],[-71.84721531600789,-35.77133024656959],[-71.8471280327786,-35.77134423764235],[-71.84507426184116,-35.7685064234784]]]}},{"type":"Feature","properties":{"nombre":"C2 SYR 174","kg_ha":15336.0,"ha":5.03,"tn":77.14,"color":"#b3bb44","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  29.12%","poda_kg_pl":0.467,"cosecha_kg_pl":4.408,"plantas_ctrl":70.88},"geometry":{"type":"Polygon","coordinates":[[[-71.83972328244971,-35.76538774456925],[-71.84159753983614,-35.76377502900859],[-71.84191377763169,-35.76422765619601],[-71.84272082258157,-35.76532338392917],[-71.84271601696999,-35.76539384416763],[-71.84093646193007,-35.76693824105767],[-71.84085854597826,-35.76696869846749],[-71.83999064400999,-35.76576589564453],[-71.83972328244971,-35.76538774456925]]]}},{"type":"Feature","properties":{"nombre":"C2 SYR 300","kg_ha":15154.0,"ha":4.69,"tn":71.07,"color":"#b6bb43","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  29.12%","poda_kg_pl":0.467,"cosecha_kg_pl":4.348,"plantas_ctrl":70.88},"geometry":{"type":"Polygon","coordinates":[[[-71.83972328244971,-35.76538774456925],[-71.83816989240792,-35.76319058138267],[-71.83819518596837,-35.7631613684721],[-71.83858958134778,-35.7631449001407],[-71.84080406133167,-35.76297096052942],[-71.84103233437435,-35.76297271850672],[-71.84139585623313,-35.76348635885955],[-71.84159753983614,-35.76377502900859],[-71.83972328244971,-35.76538774456925]]]}},{"type":"Feature","properties":{"nombre":"C2 TINT","kg_ha":12410.0,"ha":3.3876,"tn":42.04,"color":"#dab539","variedad":"Tintorera","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  3.08%","poda_kg_pl":null,"cosecha_kg_pl":2.557,"plantas_ctrl":96.92},"geometry":{"type":"Polygon","coordinates":[[[-71.83473819564303,-35.77399911731055],[-71.83458616136608,-35.77400270362538],[-71.83400107545458,-35.77400696480705],[-71.83382615878928,-35.77402539759632],[-71.83365310323312,-35.77409624816737],[-71.83346470435798,-35.77422946072897],[-71.83325994658513,-35.77439644356647],[-71.83302036787838,-35.77440686120707],[-71.83214587526996,-35.77433685835317],[-71.83168943123512,-35.77433807641094],[-71.83146053288186,-35.77431962365112],[-71.83156206838684,-35.77421230730265],[-71.83185234360559,-35.773981311584],[-71.83225033670243,-35.77365239111995],[-71.83271494377183,-35.77322174454494],[-71.83280731855272,-35.77318618214251],[-71.83296631004119,-35.77304889462639],[-71.83307453513045,-35.77296526569118],[-71.83313750327268,-35.77292562704394],[-71.83326090182331,-35.77277487048329],[-71.8332879395509,-35.77271223254723],[-71.83352057657031,-35.77250643822941],[-71.8335615081493,-35.77250547309939],[-71.83363319927473,-35.77254670605172],[-71.83376573298354,-35.77265327397364],[-71.83397648280618,-35.77281999766669],[-71.83416079787334,-35.77290149763714],[-71.834420960251,-35.77297643909606],[-71.83467544493665,-35.7730562831733],[-71.83480044080872,-35.77311533505708],[-71.83492831447349,-35.77325539641115],[-71.83492940721696,-35.77345091046899],[-71.83487321044447,-35.77368116087438],[-71.83482413804917,-35.77378247305671],[-71.83477955886624,-35.77384552511289],[-71.83473819564303,-35.77399911731055]]]}},{"type":"Feature","properties":{"nombre":"C3 CAB C46","kg_ha":13872.0,"ha":3.82,"tn":52.99,"color":"#ccbd3e","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  17.33%","poda_kg_pl":0.498,"cosecha_kg_pl":3.428,"plantas_ctrl":82.67},"geometry":{"type":"Polygon","coordinates":[[[-71.8430520005864,-35.77027612783244],[-71.84300159844642,-35.77028061673516],[-71.84282618322563,-35.77042823347787],[-71.84261322463155,-35.77060744296197],[-71.84223771416015,-35.77092344075168],[-71.84162831310023,-35.77144172658893],[-71.84117006332835,-35.77184711364403],[-71.84103070499428,-35.77170085437381],[-71.84098269469321,-35.77158514258494],[-71.84085303277227,-35.77139505290254],[-71.84080252334252,-35.77129132325059],[-71.84061709974296,-35.77101432016033],[-71.84034964376315,-35.77056994695173],[-71.84026303502482,-35.77043845469416],[-71.84029074477321,-35.77039487645172],[-71.84046069279883,-35.77031932076301],[-71.84070796606204,-35.77019662907654],[-71.84091575015017,-35.7701154091184],[-71.84103417510146,-35.77007207080822],[-71.84113946383286,-35.76998850425345],[-71.84130911070565,-35.76982233861232],[-71.84151896296548,-35.76955268305578],[-71.84170085077157,-35.7693194578452],[-71.84171266925149,-35.7692404856276],[-71.84209038691087,-35.76891916703455],[-71.8421379269464,-35.76893950439115],[-71.84228779768176,-35.76912196091841],[-71.84248508594517,-35.7694034500843],[-71.84272818073414,-35.76973870179113],[-71.84305255232265,-35.77021987707177],[-71.8430520005864,-35.77027612783244]]]}},{"type":"Feature","properties":{"nombre":"C3 MER","kg_ha":10128.0,"ha":12.8,"tn":129.64,"color":"#d69730","variedad":"Merlot","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes 9.85%","poda_kg_pl":0.446,"cosecha_kg_pl":2.289,"plantas_ctrl":90.15},"geometry":{"type":"Polygon","coordinates":[[[-71.84848660598779,-35.77342064594675],[-71.84732646140496,-35.77350477514724],[-71.84557834520479,-35.77361474075231],[-71.84513920931974,-35.77299321282767],[-71.8443118641763,-35.77184433125781],[-71.84375394058524,-35.77107060840461],[-71.84316885548496,-35.77025281348313],[-71.84315094882035,-35.77016083280775],[-71.84395192028657,-35.76944139603311],[-71.84495253448095,-35.76857713131152],[-71.84503690389172,-35.76858407634325],[-71.84574594379534,-35.76959565864409],[-71.84670099832634,-35.7709412179054],[-71.84720491656185,-35.77163572491504],[-71.84723836055333,-35.77185551030009],[-71.84712640900686,-35.77199825941981],[-71.84732224693389,-35.77225890888948],[-71.84750125533935,-35.77215034003731],[-71.8475559672465,-35.7721460628257],[-71.84799792056923,-35.77274366864142],[-71.84848660598779,-35.77342064594675]]]}},{"type":"Feature","properties":{"nombre":"C3 SYR 174","kg_ha":17589.0,"ha":4.5,"tn":79.15,"color":"#8cb94d","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  30.98%","poda_kg_pl":0.317,"cosecha_kg_pl":5.188,"plantas_ctrl":69.02},"geometry":{"type":"Polygon","coordinates":[[[-71.83800858404963,-35.76685794738069],[-71.8396493437639,-35.76544549274264],[-71.83991644466889,-35.76581444741432],[-71.8407789867518,-35.76703108910058],[-71.8407810005407,-35.76708767646596],[-71.83991434849547,-35.7678116252774],[-71.83909810090067,-35.76851351182259],[-71.83903555229537,-35.768503066321],[-71.83833343845804,-35.76737502773391],[-71.83800858404963,-35.76685794738069]]]}},{"type":"Feature","properties":{"nombre":"C3 SYR 300","kg_ha":12147.0,"ha":7.28,"tn":88.43,"color":"#dab238","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  30.98%","poda_kg_pl":0.317,"cosecha_kg_pl":3.573,"plantas_ctrl":69.02},"geometry":{"type":"Polygon","coordinates":[[[-71.83800858404963,-35.76685794738069],[-71.83791086658123,-35.76670240621034],[-71.83731014822094,-35.76575081378463],[-71.83680286151609,-35.76495797533656],[-71.83629288336769,-35.7641920250914],[-71.83582184190037,-35.76338938413989],[-71.83591828312298,-35.76332451185374],[-71.83610078039085,-35.76331424384705],[-71.83647308307802,-35.7632935345237],[-71.83689622641757,-35.7632626816111],[-71.83759872904928,-35.76316859670893],[-71.83783227800421,-35.76315413992693],[-71.83797187730377,-35.76317170912246],[-71.83804300037019,-35.76321772230052],[-71.83837690138466,-35.76365993651841],[-71.83878563715179,-35.76425240240114],[-71.8396493437639,-35.76544549274264],[-71.83800858404963,-35.76685794738069]]]}},{"type":"Feature","properties":{"nombre":"C3 TINT","kg_ha":12271.0,"ha":7.5378,"tn":92.5,"color":"#dab339","variedad":"Tintorera","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  4.04%","poda_kg_pl":null,"cosecha_kg_pl":2.554,"plantas_ctrl":95.96},"geometry":{"type":"Polygon","coordinates":[[[-71.83123112743209,-35.77428687459349],[-71.83103697624234,-35.77425806382178],[-71.8308660461694,-35.7742239364393],[-71.83061358917794,-35.77420126775619],[-71.83054808348112,-35.774169425849],[-71.83016393971741,-35.77406401110904],[-71.8300845424679,-35.77397049559243],[-71.82993531352075,-35.77388816307567],[-71.82968319565472,-35.77387502295873],[-71.82948573264122,-35.77391782669039],[-71.8293818293332,-35.77395842729009],[-71.8292291186844,-35.77394294565394],[-71.82869862132902,-35.77383620247211],[-71.8286068554187,-35.77372389998833],[-71.82846347582777,-35.77364142790935],[-71.82836974730382,-35.77363886469692],[-71.82832043428633,-35.77356848624097],[-71.82826713152612,-35.77355066366482],[-71.82817925057675,-35.77354796267561],[-71.82806128794908,-35.77352212319322],[-71.82795299404563,-35.77343882478063],[-71.8278393594565,-35.77336995976135],[-71.82770801385078,-35.77329674210961],[-71.8276590844406,-35.77290681297612],[-71.82751685800555,-35.77186568836881],[-71.8274376202372,-35.77128093185691],[-71.82756339110149,-35.77119689498772],[-71.82773543357716,-35.77109746138856],[-71.82796476658365,-35.77096329446712],[-71.82818977122379,-35.77087215245743],[-71.82853201630307,-35.77111686908196],[-71.82979745462664,-35.7721458562219],[-71.83028511678889,-35.77253022135221],[-71.83075557944746,-35.77292452807],[-71.83130307781327,-35.7733456334461],[-71.83145883071244,-35.77344688761521],[-71.83158534672924,-35.7735488304868],[-71.83187414091236,-35.77377095012709],[-71.83169760364885,-35.77390864970705],[-71.83151623272148,-35.77407507854215],[-71.83131180913928,-35.77425158879872],[-71.83123112743209,-35.77428687459349]]]}},{"type":"Feature","properties":{"nombre":"C4 CAB C46","kg_ha":15299.0,"ha":5.08,"tn":77.72,"color":"#b3bb44","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  20.22%","poda_kg_pl":0.424,"cosecha_kg_pl":3.843,"plantas_ctrl":79.78},"geometry":{"type":"Polygon","coordinates":[[[-71.84012783094525,-35.77027615681153],[-71.84008461114,-35.77017988534269],[-71.8398290592965,-35.76977386047572],[-71.8396176436657,-35.76942402323035],[-71.83937989254372,-35.76905763844353],[-71.83911445050352,-35.76863658387332],[-71.8391347200463,-35.76854835059947],[-71.83934158606577,-35.76837558528084],[-71.83971870827968,-35.76805381114727],[-71.83983846051473,-35.76793270374142],[-71.84030262146388,-35.76755736304829],[-71.84070596984277,-35.76718345810131],[-71.84083443147063,-35.76710983648498],[-71.84087842880342,-35.76716221216373],[-71.84121058170359,-35.76761602433899],[-71.84145314953412,-35.76798610699309],[-71.8418315790269,-35.76849033107159],[-71.84207025280033,-35.76881662722777],[-71.84206513663759,-35.76887016390629],[-71.84169364847094,-35.76921851988558],[-71.8416192129113,-35.76923172619698],[-71.84151874697622,-35.76930277904339],[-71.84138269145836,-35.76942618126904],[-71.84120331893062,-35.76964790033302],[-71.84106655181266,-35.7698171039225],[-71.84085005940663,-35.76998246893454],[-71.84048876002446,-35.77015697948175],[-71.84023775776792,-35.77027355881671],[-71.84012783094525,-35.77027615681153]]]}},{"type":"Feature","properties":{"nombre":"C4 CAR","kg_ha":12139.0,"ha":8.64,"tn":104.88,"color":"#dab138","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  8.5%","poda_kg_pl":null,"cosecha_kg_pl":2.695,"plantas_ctrl":91.5},"geometry":{"type":"Polygon","coordinates":[[[-71.84547977670805,-35.77362005556986],[-71.84396316879146,-35.77376028502361],[-71.84260767667324,-35.77390562666079],[-71.84243357485265,-35.77384416767915],[-71.84140386264504,-35.77224995340775],[-71.84119871985904,-35.77193287891037],[-71.84117006332835,-35.77184711364403],[-71.84175514272059,-35.77132952676268],[-71.84300159844642,-35.77028061673516],[-71.84309274810249,-35.77027249877165],[-71.8437819162776,-35.77123985106249],[-71.84527129057707,-35.77333287551406],[-71.84547977670805,-35.77362005556986]]]}},{"type":"Feature","properties":{"nombre":"C4 SYR 174","kg_ha":16311.0,"ha":5.56,"tn":90.69,"color":"#a2ba48","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  28.57%","poda_kg_pl":0.351,"cosecha_kg_pl":4.652,"plantas_ctrl":71.43},"geometry":{"type":"Polygon","coordinates":[[[-71.83582312306862,-35.76874631167866],[-71.8379455370743,-35.76691934157116],[-71.83854734919197,-35.76786611991652],[-71.83896646937177,-35.768527731851],[-71.83897013021814,-35.76863066142622],[-71.83863594878106,-35.76890944952217],[-71.83759600160768,-35.76981346131954],[-71.83705601949704,-35.7702955057825],[-71.83697090385066,-35.77033757695862],[-71.83693227411267,-35.77030777483171],[-71.83620229909062,-35.76928053598322],[-71.83582312306862,-35.76874631167866]]]}},{"type":"Feature","properties":{"nombre":"C4 SYR 300","kg_ha":12470.0,"ha":9.76,"tn":121.71,"color":"#dab639","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  28.57%","poda_kg_pl":0.351,"cosecha_kg_pl":3.763,"plantas_ctrl":71.43},"geometry":{"type":"Polygon","coordinates":[[[-71.835180277788,-35.76784223560345],[-71.83512030897049,-35.76775839233248],[-71.83466510175782,-35.76342882798977],[-71.83479854811739,-35.76341932179474],[-71.83498469328929,-35.76340606129013],[-71.83561591490323,-35.7633643427937],[-71.83572400188535,-35.76342140845245],[-71.83588270712823,-35.76367428234938],[-71.83610853890463,-35.76402179996017],[-71.83742909279961,-35.76610818544058],[-71.8379455370743,-35.76691934157118],[-71.83582312306864,-35.76874631167865],[-71.835180277788,-35.76784223560345]]]}},{"type":"Feature","properties":{"nombre":"C4 SYR 300 (B)","kg_ha":19219.0,"ha":5.632,"tn":108.24,"color":"#6eae4c","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  28.57%","poda_kg_pl":0.351,"cosecha_kg_pl":5.398,"plantas_ctrl":71.43},"geometry":{"type":"Polygon","coordinates":[[[-71.83511673735994,-35.767754343238],[-71.83477876780086,-35.76728181933468],[-71.8341932734833,-35.76644908327026],[-71.83371328350009,-35.76570328020812],[-71.83307861622868,-35.76482400473041],[-71.83253933425563,-35.76405574768024],[-71.83241637622938,-35.76388874018914],[-71.83228235045188,-35.76371901258676],[-71.83222707092801,-35.76360406425786],[-71.83266420133545,-35.76355501182006],[-71.83329208908695,-35.76352232649378],[-71.83466153274476,-35.76342478155226],[-71.83511673735994,-35.767754343238]]]}},{"type":"Feature","properties":{"nombre":"C5 CAB C46","kg_ha":11182.0,"ha":5.1,"tn":57.03,"color":"#d8a534","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  15.85%","poda_kg_pl":0.448,"cosecha_kg_pl":2.782,"plantas_ctrl":84.15},"geometry":{"type":"Polygon","coordinates":[[[-71.83860207911864,-35.77264795120293],[-71.83863061674137,-35.77258646903939],[-71.83876949098025,-35.77241864907203],[-71.83877069844,-35.77232919692639],[-71.83875633414401,-35.77217215067009],[-71.83880177782999,-35.77209238437944],[-71.83902677178908,-35.7720012224971],[-71.83909515954998,-35.77194952961134],[-71.83909159980286,-35.77184945925719],[-71.83895673040672,-35.77175964492776],[-71.83879491295168,-35.77165258230109],[-71.83865839174965,-35.77151630634925],[-71.83844630162247,-35.77135319960209],[-71.83832999231457,-35.77129156170977],[-71.83829287661561,-35.77098839792556],[-71.83831791821663,-35.77095203702326],[-71.83831836370828,-35.77084114117543],[-71.83841280929805,-35.77078167934271],[-71.83856089649362,-35.77074956597746],[-71.83882986824048,-35.77066094268925],[-71.83896918420676,-35.77062903602737],[-71.83915584954032,-35.770570971951],[-71.83928213614199,-35.77054294969945],[-71.83945551769514,-35.77048162206746],[-71.83960258663537,-35.77042091593537],[-71.83981384822653,-35.7704373855049],[-71.84009940714513,-35.77044494494994],[-71.84017472179421,-35.7704646266657],[-71.84032745212753,-35.77068636444636],[-71.84071668676997,-35.7712637829371],[-71.8407648660751,-35.77138426011263],[-71.8408255658207,-35.77148655657058],[-71.84088537524129,-35.77156383543829],[-71.84100200838768,-35.77175781003204],[-71.84105717829105,-35.77182804460062],[-71.84106398096513,-35.77189584568885],[-71.84108918423898,-35.77194858404359],[-71.8399994955171,-35.77285092862189],[-71.83963646175474,-35.77315613690903],[-71.83919729877412,-35.77354807529693],[-71.83860207911864,-35.77264795120293]]]}},{"type":"Feature","properties":{"nombre":"C5 CAR","kg_ha":7241.0,"ha":1.66,"tn":12.02,"color":"#ce6e25","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  6.6%","poda_kg_pl":0.338,"cosecha_kg_pl":1.67,"plantas_ctrl":93.4},"geometry":{"type":"Polygon","coordinates":[[[-71.84238622155601,-35.7739523972455],[-71.84008987773338,-35.77412641945095],[-71.83944967406013,-35.77391798943567],[-71.83944258493729,-35.7738729483505],[-71.8395269055171,-35.77377557077811],[-71.83959745510113,-35.77370236484773],[-71.83981630960666,-35.77368526999116],[-71.8400570918181,-35.7736676565055],[-71.84013558601569,-35.7736121472242],[-71.84034352689514,-35.77349396263607],[-71.84049680928884,-35.77348437797295],[-71.84067657239038,-35.7733966667227],[-71.84101798647437,-35.77332897990591],[-71.84153239008936,-35.77339431785693],[-71.84209880760925,-35.77348226970183],[-71.84238622155601,-35.7739523972455]]]}},{"type":"Feature","properties":{"nombre":"C5 SYR 174","kg_ha":20289.0,"ha":2.94,"tn":59.64999999999999,"color":"#5aa347","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  21.44%","poda_kg_pl":null,"cosecha_kg_pl":5.336,"plantas_ctrl":78.56},"geometry":{"type":"Polygon","coordinates":[[[-71.83527100513744,-35.76922155298855],[-71.83575265216572,-35.76880697065194],[-71.83588302443945,-35.7689806755065],[-71.83639195302064,-35.76971624715783],[-71.83659570498915,-35.77001547860255],[-71.83684382057828,-35.77032797020598],[-71.8368814442836,-35.77039862100644],[-71.83686154972652,-35.77045632180545],[-71.83609414710489,-35.77109324687696],[-71.83539329526255,-35.77168122791812],[-71.83493417199998,-35.76978815099994],[-71.83532706999995,-35.76975476599993],[-71.83527100513744,-35.76922155298855]]]}},{"type":"Feature","properties":{"nombre":"C5 SYR 174 (B)","kg_ha":20787.0,"ha":4.8592,"tn":101.01,"color":"#519e45","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes 21.44%","poda_kg_pl":null,"cosecha_kg_pl":5.33,"plantas_ctrl":78.56},"geometry":{"type":"Polygon","coordinates":[[[-71.83539329526255,-35.77168122791812],[-71.83489649353818,-35.77209801261959],[-71.834796331232,-35.77199664391635],[-71.83471244175969,-35.77185912177754],[-71.83455559246349,-35.77164462763655],[-71.83405067148657,-35.77089822290483],[-71.83361108914772,-35.77026116064324],[-71.83342253343912,-35.770018796835],[-71.83332009212369,-35.76985309538179],[-71.83325978372062,-35.769761516492],[-71.83321727066972,-35.76967667193554],[-71.83323151377141,-35.76958333540348],[-71.83434684826662,-35.76860914345539],[-71.83485423011201,-35.76818940354237],[-71.83504134359448,-35.76802044987755],[-71.83510547252362,-35.76797243667791],[-71.83514043113668,-35.76797969223127],[-71.83520469414626,-35.76859088676485],[-71.83532706999995,-35.76975476599993],[-71.83493417199998,-35.76978815099994],[-71.83539329526255,-35.77168122791812]]]}},{"type":"Feature","properties":{"nombre":"C5 SYR 300","kg_ha":16724.0,"ha":0.29,"tn":4.85,"color":"#9bba49","variedad":"Syrah","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  21.44%","poda_kg_pl":null,"cosecha_kg_pl":4.536,"plantas_ctrl":78.56},"geometry":{"type":"Polygon","coordinates":[[[-71.83527100513744,-35.76922155298855],[-71.83520469414626,-35.76859088676485],[-71.83514043113665,-35.76797969223126],[-71.83516737408169,-35.76798528414945],[-71.83527432868806,-35.76815445450271],[-71.83534455110632,-35.76827799102379],[-71.83542062441994,-35.76831911960328],[-71.83555592318851,-35.76854485212687],[-71.83575265216572,-35.76880697065194],[-71.83527100513744,-35.76922155298855]]]}},{"type":"Feature","properties":{"nombre":"C6 CAB C46","kg_ha":13849.0,"ha":4.17,"tn":57.75,"color":"#ccbd3e","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  14.91%","poda_kg_pl":null,"cosecha_kg_pl":3.316,"plantas_ctrl":85.09},"geometry":{"type":"Polygon","coordinates":[[[-71.83850375487812,-35.77247500340358],[-71.83842843863675,-35.77245532071328],[-71.8383353902372,-35.77230728676134],[-71.8382477444644,-35.77218774069035],[-71.83814681541574,-35.7720649313189],[-71.8380955249281,-35.77198029595756],[-71.83794781875882,-35.77177632136873],[-71.83793752284213,-35.77173364116103],[-71.83707863157352,-35.77053775925364],[-71.8370261999708,-35.77042095778421],[-71.83705601949704,-35.77029550578255],[-71.83803764634784,-35.76948853125296],[-71.83892373900682,-35.76873432825608],[-71.8389919970683,-35.7686790615856],[-71.83906330585066,-35.76870956951795],[-71.83914128816733,-35.76880430477669],[-71.83932235819272,-35.76908260562672],[-71.83938407125709,-35.76921349454797],[-71.83945944908051,-35.7693583683488],[-71.83977017754796,-35.76982675989134],[-71.8399750865941,-35.77015815046381],[-71.84003953384872,-35.77024247409368],[-71.8400451909133,-35.77027810984795],[-71.83964199022778,-35.7702947917862],[-71.83902346087223,-35.77042744484561],[-71.83888916626219,-35.77047711767128],[-71.83856369340387,-35.77058138345762],[-71.83842450442287,-35.77061686359691],[-71.8382811840849,-35.77065959504438],[-71.838181336418,-35.77069056878612],[-71.83811218654569,-35.77072081746898],[-71.83806737825351,-35.77081845323569],[-71.83811332834611,-35.77099979230836],[-71.83812991596464,-35.7710959781058],[-71.83812533897081,-35.77121412542085],[-71.83818304782908,-35.77135584033724],[-71.83827380700882,-35.7714395434991],[-71.83835115582052,-35.77151640943512],[-71.83840632329127,-35.77158664533823],[-71.83852739988143,-35.77165890137461],[-71.83861135918933,-35.77167480291657],[-71.83861790554784,-35.77173545635473],[-71.83874711789726,-35.77178963525591],[-71.83877559172616,-35.77184977070235],[-71.83873377090272,-35.77190798973221],[-71.8386779037802,-35.7719415019316],[-71.83858460109248,-35.77203312950094],[-71.8385429071482,-35.77209492241627],[-71.8385740503011,-35.77223011070639],[-71.83860493934652,-35.77235815109602],[-71.838568520558,-35.77244485803047],[-71.83850375487812,-35.77247500340358]]]}},{"type":"Feature","properties":{"nombre":"C6 CAR","kg_ha":11449.0,"ha":1.87,"tn":21.41,"color":"#d8a835","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  11.46%","poda_kg_pl":null,"cosecha_kg_pl":2.796,"plantas_ctrl":88.54},"geometry":{"type":"Polygon","coordinates":[[[-71.84194862044254,-35.77323980756535],[-71.84160277663393,-35.77322413978236],[-71.84143099702226,-35.77316620131944],[-71.84093261282088,-35.77313983055198],[-71.84071109091771,-35.77316414434953],[-71.84060719494734,-35.77320475436209],[-71.84049228250646,-35.77326470171448],[-71.8403985546838,-35.7732621478889],[-71.84030584441793,-35.77328818548301],[-71.84019610066495,-35.77332893336309],[-71.84015652557301,-35.77336802276555],[-71.84005881558782,-35.77341802462612],[-71.8398159376953,-35.77350007260426],[-71.83971136255467,-35.77352162087659],[-71.83961814307219,-35.77353336220864],[-71.83935738298514,-35.77360629331363],[-71.83927018028739,-35.77362266147263],[-71.83919729877412,-35.77354807529693],[-71.83970779718938,-35.77309247190359],[-71.84108918423898,-35.77194858404359],[-71.84114265801325,-35.77197116609664],[-71.84194862044254,-35.77323980756535]]]}},{"type":"Feature","properties":{"nombre":"C6 SYR 174","kg_ha":16600.0,"ha":15.8618,"tn":263.31,"color":"#9dba49","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  17.324","poda_kg_pl":0.291,"cosecha_kg_pl":4.013,"plantas_ctrl":82.68},"geometry":{"type":"Polygon","coordinates":[[[-71.83213919627191,-35.7636246000948],[-71.83272379898511,-35.76446643004551],[-71.83329129914291,-35.76528767518698],[-71.83439540891838,-35.76688319224633],[-71.83509801026283,-35.76788247356645],[-71.83508800869787,-35.76793040218489],[-71.83425218346359,-35.76861781457676],[-71.83344676361409,-35.76933788940131],[-71.83316235641283,-35.76956875030461],[-71.83310320829793,-35.7695510676398],[-71.83273996147173,-35.7690445493897],[-71.8319502778904,-35.76789945865042],[-71.8307994245989,-35.76630501954492],[-71.82992439455619,-35.7650617693108],[-71.82908683731746,-35.76388439969526],[-71.82913793834332,-35.76384027328638],[-71.83026450331967,-35.76376128656772],[-71.83136850975937,-35.76367328221166],[-71.83194240820548,-35.76361969869714],[-71.83213919627191,-35.7636246000948]]]}},{"type":"Feature","properties":{"nombre":"C7 CAB C46","kg_ha":10740.0,"ha":1.31,"tn":14.069999999999999,"color":"#d79f32","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  9.38%","poda_kg_pl":null,"cosecha_kg_pl":2.503,"plantas_ctrl":90.62},"geometry":{"type":"Polygon","coordinates":[[[-71.8392900967945,-35.77377123022465],[-71.83921617777501,-35.77379086143299],[-71.8389204371576,-35.77374419429932],[-71.83879878524499,-35.77377926067478],[-71.83871247209774,-35.77382064603045],[-71.83857918866141,-35.77389891028614],[-71.83846503636408,-35.77389802973342],[-71.83837471864983,-35.77395024027562],[-71.83827639227681,-35.77402410157647],[-71.83809836239008,-35.77407838355752],[-71.83784228107831,-35.77415954713526],[-71.83773836224785,-35.77407615449292],[-71.83762503706033,-35.77397509914623],[-71.8375153353134,-35.77385249645329],[-71.8374117984296,-35.7737798253264],[-71.83738745626428,-35.77371243811718],[-71.8373984528699,-35.7736513703943],[-71.83748838973887,-35.77358843873492],[-71.8376165258135,-35.77348883555028],[-71.83778877131924,-35.77339534450013],[-71.8380490460334,-35.77318531201912],[-71.83821487121762,-35.77303474088421],[-71.83825631166256,-35.77296580017092],[-71.83831179835276,-35.77292156630284],[-71.83841711494388,-35.77279746265516],[-71.8385538925095,-35.77269407745649],[-71.83893282881118,-35.7732288215859],[-71.83902289244142,-35.77341627191028],[-71.83910939653494,-35.77350365181762],[-71.83916958743355,-35.77359165334417],[-71.83929346515657,-35.77374253508906],[-71.8392900967945,-35.77377123022465]]]}},{"type":"Feature","properties":{"nombre":"C7 CAR","kg_ha":7000.0,"ha":0.35,"tn":2.45,"color":"#cd6b25","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  13.635","poda_kg_pl":null,"cosecha_kg_pl":2.131,"plantas_ctrl":86.36},"geometry":{"type":"Polygon","coordinates":[[[-71.83960476146976,-35.77414414342386],[-71.83947988886642,-35.77417094039954],[-71.83793653866894,-35.77430039896188],[-71.83795306434955,-35.77427139312778],[-71.83800768332378,-35.77424387228545],[-71.8383989979677,-35.77413924485946],[-71.83868832006229,-35.77404656405002],[-71.83878094705364,-35.77401814501615],[-71.83884115873448,-35.7739833377974],[-71.83895742965436,-35.77396151395888],[-71.83905450586111,-35.77397591293317],[-71.8391639551111,-35.77400909653197],[-71.83935302320485,-35.77405947585596],[-71.83960476146976,-35.77414414342386]]]}},{"type":"Feature","properties":{"nombre":"C7 SYR 174","kg_ha":20345.0,"ha":2.2118,"tn":45.0,"color":"#59a247","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  13%","poda_kg_pl":null,"cosecha_kg_pl":5.107,"plantas_ctrl":87.0},"geometry":{"type":"Polygon","coordinates":[[[-71.83283709096723,-35.77150439493442],[-71.8328486647552,-35.77141827527825],[-71.83291968991689,-35.77127590756799],[-71.83303317980135,-35.77101092240337],[-71.83314709185926,-35.77075785035664],[-71.8332526073145,-35.77059797689912],[-71.83338773351127,-35.77053040594517],[-71.83362594709325,-35.77048186586859],[-71.83367564846036,-35.7704806939367],[-71.83407051336671,-35.77105323307354],[-71.83440721171971,-35.77155321905577],[-71.83473069651504,-35.77201059227397],[-71.83481929103766,-35.77211581086277],[-71.83483894878044,-35.77217496295622],[-71.83480848100251,-35.77222337433374],[-71.83452114456651,-35.7724543076156],[-71.83441902296207,-35.77254494775262],[-71.83437143577018,-35.77260568597418],[-71.83432876510658,-35.77264007725792],[-71.83427639258022,-35.77264846638799],[-71.83388891527233,-35.77236667928417],[-71.83339195928451,-35.77196824049061],[-71.83283709096723,-35.77150439493442]]]}},{"type":"Feature","properties":{"nombre":"C8 CAB","kg_ha":16605.0,"ha":6.31,"tn":104.78,"color":"#9dba49","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  10.44%","poda_kg_pl":null,"cosecha_kg_pl":3.784,"plantas_ctrl":89.56},"geometry":{"type":"Polygon","coordinates":[[[-71.83541508026204,-35.77177105084782],[-71.83622920669178,-35.77106502075879],[-71.83690203456878,-35.77048398168511],[-71.83698637347668,-35.77051060628315],[-71.83708469179746,-35.77068355563501],[-71.83728743261523,-35.77095419405195],[-71.83804616550505,-35.77204870824558],[-71.83813457337195,-35.77218969815103],[-71.8383417073165,-35.77246023081715],[-71.83838422738182,-35.77254507320871],[-71.83838200265853,-35.77260593382357],[-71.83835670641145,-35.77263514686665],[-71.83828469467544,-35.77270838661507],[-71.83824236467555,-35.77275230973015],[-71.83812814970317,-35.77287304644173],[-71.83764719833017,-35.77329575307093],[-71.83757779189757,-35.77331885365672],[-71.8374712026329,-35.77340721719626],[-71.83730048143265,-35.77354359515865],[-71.83722020500552,-35.77363133721722],[-71.83699266331283,-35.77365101706306],[-71.83662027036041,-35.77367053884732],[-71.83587030168052,-35.77370373968633],[-71.83571820038641,-35.77370542129979],[-71.83547555613757,-35.77372831621952],[-71.83525108181844,-35.77373552031304],[-71.83524250737976,-35.77369184538955],[-71.83525362940028,-35.77360955164469],[-71.8353123488744,-35.77341739567346],[-71.8353868938176,-35.77334123631454],[-71.83550323271065,-35.77332132192595],[-71.8356030633231,-35.77329798155382],[-71.83574354144152,-35.77316685042177],[-71.83576777999971,-35.77312430892916],[-71.83576588360711,-35.77307093793025],[-71.83576751375756,-35.77298505272099],[-71.83570116454904,-35.77295060452128],[-71.83541508026204,-35.77177105084782]]]}},{"type":"Feature","properties":{"nombre":"C8 CAB (B)","kg_ha":null,"ha":null,"tn":null,"color":"#444444","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  10.44%","poda_kg_pl":null,"cosecha_kg_pl":3.098,"plantas_ctrl":89.56},"geometry":{"type":"Polygon","coordinates":[[[-71.83570116454904,-35.77295060452128],[-71.8357007361602,-35.77295038210362],[-71.83551436460073,-35.77297576457168],[-71.83529392428095,-35.77303056615484],[-71.83514870565944,-35.7730282692176],[-71.8350936230626,-35.77299332234061],[-71.83503311778337,-35.77293751860388],[-71.83495871427351,-35.77288585812035],[-71.83485892089189,-35.77284433507187],[-71.83475465281302,-35.77280864061078],[-71.834525337142,-35.77274537237012],[-71.83442320519077,-35.77270390411007],[-71.83439425774459,-35.77267978669574],[-71.83438856442784,-35.77265130538709],[-71.83441768457169,-35.77261437213263],[-71.83522433204148,-35.77193646957851],[-71.83541508026204,-35.77177105084782],[-71.83570116454904,-35.77295060452128]]]}},{"type":"Feature","properties":{"nombre":"C8 CAR","kg_ha":7903.0,"ha":1.55,"tn":12.25,"color":"#d17927","variedad":"Carmenere","patron":"MASAL","anio_plant":2006,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  6.01%","poda_kg_pl":null,"cosecha_kg_pl":1.834,"plantas_ctrl":93.99},"geometry":{"type":"Polygon","coordinates":[[[-71.83770008868467,-35.77430550586058],[-71.83753135894264,-35.77433333647191],[-71.83515964807994,-35.7744560856178],[-71.83510397334035,-35.77437155240415],[-71.83507245758534,-35.77414337128822],[-71.83510695702215,-35.77396132534275],[-71.83519763852564,-35.77387810841881],[-71.83556585914378,-35.77386465105632],[-71.83618501202817,-35.77383096266077],[-71.8368511131313,-35.77380093204062],[-71.83714348540414,-35.77379402963834],[-71.83725161943327,-35.77387255403764],[-71.83748797194721,-35.77410066719418],[-71.83770008868467,-35.77430550586058]]]}},{"type":"Feature","properties":{"nombre":"C8 SYR 300","kg_ha":19769.0,"ha":1.084,"tn":21.43,"color":"#64a849","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  15.97%","poda_kg_pl":null,"cosecha_kg_pl":4.705,"plantas_ctrl":84.03},"geometry":{"type":"Polygon","coordinates":[[[-71.83192459462641,-35.7707747417542],[-71.83192265024233,-35.77071994097103],[-71.83217155901926,-35.77047799630103],[-71.83271699519554,-35.77001682939849],[-71.83301644603756,-35.76979753803609],[-71.83309653047448,-35.76974557277614],[-71.83315207857449,-35.76974426323629],[-71.83324176784662,-35.76988045755896],[-71.8334655933968,-35.77016849045837],[-71.83351859336372,-35.77026024154875],[-71.83349981982876,-35.7703083768757],[-71.8333903299107,-35.77035626644436],[-71.83321092699015,-35.77041295809219],[-71.83303783024617,-35.7705648861827],[-71.83292879878778,-35.77070814990515],[-71.83285493502011,-35.77085296916814],[-71.83279971213443,-35.77102834922315],[-71.83274991348522,-35.77119167822215],[-71.83271143488903,-35.77126173963252],[-71.83259024860735,-35.77130990420833],[-71.8324468697337,-35.77122743684672],[-71.83226227097391,-35.77105532467277],[-71.83192459462641,-35.7707747417542]]]}},{"type":"Feature","properties":{"nombre":"C9 CAB C46","kg_ha":11581.0,"ha":12.1186,"tn":140.35,"color":"#d9aa36","variedad":"Cabernet Sauvignon","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arcilloso","obs":"plantas faltantes  5.91%","poda_kg_pl":0.35,"cosecha_kg_pl":2.499,"plantas_ctrl":94.09},"geometry":{"type":"Polygon","coordinates":[[[-71.8277939552704,-35.76400385325531],[-71.82808751702171,-35.76391586797161],[-71.82819292763871,-35.76391815675358],[-71.8284900997236,-35.76388254760369],[-71.82874735724981,-35.76387649285908],[-71.82898707442105,-35.76387085044352],[-71.82955402596636,-35.76467781935762],[-71.83051595442663,-35.76606162727326],[-71.83068678849078,-35.76627508254711],[-71.83068060341962,-35.76634819812167],[-71.83066937250568,-35.76637803214886],[-71.82862441767637,-35.76811927364751],[-71.82854840573427,-35.76812106271147],[-71.82847570803736,-35.76805123458527],[-71.82803019403036,-35.76769925420715],[-71.82719933548331,-35.76704156550486],[-71.82587987372591,-35.7659708945375],[-71.82579981528615,-35.76585831422513],[-71.82592636610792,-35.76563118240514],[-71.82626087354573,-35.76532762102304],[-71.82691919961125,-35.76474936269177],[-71.8277939552704,-35.76400385325531]]]}},{"type":"Feature","properties":{"nombre":"C9 SYR 300","kg_ha":17692.0,"ha":8.9052,"tn":157.54999999999998,"color":"#8bb94d","variedad":"Syrah","patron":"MASAL","anio_plant":2010,"marco":"2*1","plantas_ha":5000,"riego":"Tecnificado 4lts/hora","suelo":"Franco arenoso","obs":"plantas faltantes  12.63%","poda_kg_pl":0.34,"cosecha_kg_pl":4.063,"plantas_ctrl":87.37},"geometry":{"type":"Polygon","coordinates":[[[-71.83077507692387,-35.76641051706847],[-71.83097151792616,-35.76670039250287],[-71.83146992971982,-35.76734740661043],[-71.83195007779801,-35.76799484879474],[-71.832401949588,-35.76866978241328],[-71.83277513798618,-35.76918858678827],[-71.83302536260905,-35.76954038346817],[-71.83305541390905,-35.7696141948637],[-71.83302934941224,-35.76970423310649],[-71.83258072269659,-35.77004865709279],[-71.83189288420715,-35.7706610265342],[-71.8318275254119,-35.77067448986264],[-71.83169925624635,-35.77056424220353],[-71.83127228713191,-35.77028218437388],[-71.83030982240778,-35.76954534915755],[-71.82946295671115,-35.7688498999221],[-71.82886402644105,-35.76837991829206],[-71.82865880840653,-35.76820351627266],[-71.82866322011941,-35.76816287359016],[-71.8287395381348,-35.76808715347703],[-71.82910637162992,-35.76778759264528],[-71.8296965581476,-35.76726815458125],[-71.83030686347205,-35.76673870138971],[-71.83069021185561,-35.76641013134667],[-71.83074533530313,-35.7663969097887],[-71.83077507692387,-35.76641051706847]]]}}]};
+
+
+// Mapa
+const map = L.map('map',{zoomControl:false}).setView([-35.7686,-71.8377],15);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(map);
+const lbl = L.tileLayer('https://services.arcgisonline.com/arcgis/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,opacity:0.5}).addTo(map);
+L.control.zoom({position:'topright'}).addTo(map);
+
+// GPS
+let gm=null;
+function locateMe(){
+  const btn=document.getElementById('fab-gps');
+  if(!navigator.geolocation){
+    alert('GPS no disponible.\n\nNota: en iOS el GPS solo funciona desde Safari. Abre el archivo desde la app Archivos o pide que te lo compartan por AirDrop.');
+    return;
+  }
+  btn.innerHTML='&#9203;';btn.style.pointerEvents='none';
+  navigator.geolocation.getCurrentPosition(
+    function(p){
+      const ll=L.latLng(p.coords.latitude,p.coords.longitude);
+      if(gm)map.removeLayer(gm);
+      gm=L.circleMarker(ll,{radius:10,color:'#c8a96e',fillColor:'#ffe080',fillOpacity:0.95,weight:2.5})
+        .bindPopup('<b style="color:#c8a96e">&#128205; Estás aquí</b>').addTo(map);
+      map.setView(ll,17);
+      btn.innerHTML='&#128205;';btn.style.pointerEvents='';
+    },
+    function(e){
+      const m={
+        1:'Permiso denegado.\n\nVe a Ajustes > Safari (o el navegador que uses) > Ubicación y permite el acceso.',
+        2:'Posición no disponible.\n\nActiva el GPS en Ajustes del teléfono.',
+        3:'Tiempo agotado. Intenta de nuevo al aire libre con mejor señal.'
+      };
+      alert(m[e.code]||('Error GPS: '+e.message));
+      btn.innerHTML='&#128205;';btn.style.pointerEvents='';
+    },
+    {enableHighAccuracy:true,timeout:25000,maximumAge:0}
+  );
+}
+
+// Fullscreen — API nativa del navegador con respaldo CSS
+function toggleFS(){
+  const fsEl=document.fullscreenElement||document.webkitFullscreenElement;
+  const btn=document.getElementById('fab-fs');
+  if(!fsEl){
+    const el=document.documentElement;
+    if(el.requestFullscreen){el.requestFullscreen();}
+    else if(el.webkitRequestFullscreen){el.webkitRequestFullscreen();}
+    else{
+      document.body.classList.add('fs');
+      btn.innerHTML='&#x2715;';
+      setTimeout(()=>map.invalidateSize(),250);
+    }
+  } else {
+    if(document.exitFullscreen){document.exitFullscreen();}
+    else if(document.webkitExitFullscreen){document.webkitExitFullscreen();}
+  }
+}
+document.addEventListener('fullscreenchange',function(){
+  const btn=document.getElementById('fab-fs');if(!btn)return;
+  if(document.fullscreenElement){btn.innerHTML='&#x2715;';}
+  else{btn.innerHTML='&#x26F6;';document.body.classList.remove('fs');}
+  setTimeout(()=>map.invalidateSize(),250);
+});
+document.addEventListener('webkitfullscreenchange',function(){
+  const btn=document.getElementById('fab-fs');if(!btn)return;
+  if(document.webkitFullscreenElement){btn.innerHTML='&#x2715;';}
+  else{btn.innerHTML='&#x26F6;';document.body.classList.remove('fs');}
+  setTimeout(()=>map.invalidateSize(),250);
+});
+
+// Capas
+const PLANTAS_DATA={
+  'C1 CAB C46':86.11,
+  'C1 CAR':88,
+  'C1 SYR 174':75.97,
+  'C1 SYR 300':75.97,
+  'C1 TINT':97.9,
+  'C10 CAB C46':93.06,
+  'C11 CAB 341':94.42,
+  'C12 CAB 341':95.43,
+  'C13 CAB 341':95.92,
+  'C2 CAB C46':87.09,
+  'C2 MER':88.23,
+  'C2 SYR 174':70.88,
+  'C2 SYR 300':70.88,
+  'C2 TINT':96.92,
+  'C3 CAB C46':82.67,
+  'C3 MER':90.15,
+  'C3 SYR 174':69.02,
+  'C3 SYR 300':69.02,
+  'C3 TINT':95.96,
+  'C4 CAB C46':79.78,
+  'C4 CAR':91.5,
+  'C4 SYR 174':71.43,
+  'C4 SYR 300':71.43,
+  'C4 SYR 300 (B)':71.43,
+  'C5 CAB C46':84.15,
+  'C5 CAR':93.4,
+  'C5 SYR 174':78.56,
+  'C5 SYR 174 (B)':78.56,
+  'C5 SYR 300':78.56,
+  'C6 CAB C46':85.09,
+  'C6 CAR':88.54,
+  'C6 SYR 174':82.68,
+  'C7 CAB C46':90.62,
+  'C7 CAR':86.36,
+  'C7 SYR 174':87,
+  'C8 CAB':89.56,
+  'C8 CAB (B)':89.56,
+  'C8 CAR':93.99,
+  'C8 SYR 300':84.03,
+  'C9 CAB C46':94.09,
+  'C9 SYR 300':87.37,
+};
+function plantasColor(v){
+  if(v==null)return'#444';
+  if(v>=100)return'#1e823c';
+  if(v<40)return'#8b0000';
+  const stops=[[40,[182,38,21]],[55,[200,72,33]],[65,[210,107,37]],[72,[220,163,56]],
+               [78,[204,189,63]],[83,[168,187,71]],[88,[96,166,73]],[93,[58,145,65]],[100,[30,130,50]]];
+  for(let i=0;i<stops.length-1;i++){
+    const[t0,c0]=stops[i],[t1,c1]=stops[i+1];
+    if(v>=t0&&v<t1){const t=(v-t0)/(t1-t0);
+      return'#'+[0,1,2].map(j=>Math.round(c0[j]+(c1[j]-c0[j])*t).toString(16).padStart(2,'0')).join('');}
+  }
+  return'#1e823c';
+}
+function riegoColor(r){
+  const m={'1':'#1f77b4','2':'#2ca02c','3':'#d62728','4':'#ff7f0e',
+           'A':'#9467bd','B':'#8c564b','1 y 2':'#17becf','4 y 2':'#bcbd22','AyB':'#e377c2',
+           'Tecnificado 4lts/hora':'#2196f3'};
+  return m[r]||'#444';
+}
+function podaColor(v){
+  if(v==null)return'#444';
+  if(v>=1.0)return'#1e823c';
+  if(v<0.20)return'#b62615';
+  const stops=[[0.20,[182,38,21]],[0.35,[210,107,37]],[0.50,[220,163,56]],[0.65,[168,187,71]],[0.80,[58,145,65]],[1.0,[30,130,50]]];
+  for(let i=0;i<stops.length-1;i++){
+    const[t0,c0]=stops[i],[t1,c1]=stops[i+1];
+    if(v>=t0&&v<t1){const t=(v-t0)/(t1-t0);
+      return'#'+[0,1,2].map(j=>Math.round(c0[j]+(c1[j]-c0[j])*t).toString(16).padStart(2,'0')).join('');}
+  }
+  return'#1e823c';
+}
+let mode='prod';
+const sP=f=>({fillColor:f.properties.color||'#444',fillOpacity:0.72,color:'#0d0d0d',weight:1.5});
+const sN=f=>({fillColor:'transparent',fillOpacity:0.01,color:'#ffd700',weight:1.8});
+
+const geo=L.geoJSON(geojson,{
+  style:sP,
+  onEachFeature(feat,layer){
+    const p=feat.properties;
+    const kg=p.kg_ha?p.kg_ha.toLocaleString('es-CL')+' kg/ha':'Sin dato';
+    const tn=p.tn?(+p.tn).toFixed(1)+' TN':'–';
+    const ha=p.ha?(+p.ha).toFixed(2)+' ha':'–';
+    // Ficha agronómica
+    const vr=p.variedad||'';
+    const yr=p.anio_plant?String(p.anio_plant):'';
+    const pt=p.patron||'';
+    const mk=p.marco||'';
+    const plh=p.plantas_ha?p.plantas_ha.toLocaleString('es-CL')+' pl/ha':'';
+    const sl=p.suelo||'';
+    const ob=p.obs||'';
+    const plc=p.plantas_ctrl!=null?p.plantas_ctrl.toFixed(1)+'%':'';
+    let htm='<div class="pnombre">'+p.nombre+'</div>';
+    if(vr){htm+='<div class="psub">'+vr+(yr?' · '+yr:'')+'</div>';}
+    if(pt){htm+='<div class="prow2"><span>Patrón: </span>'+pt+'</div>';}
+    if(mk){htm+='<div class="prow2"><span>Marco: </span>'+mk+'</div>';}
+    if(plh){htm+='<div class="prow2"><span>Plantas: </span>'+plh+'</div>';}
+    if(sl){htm+='<div class="prow2"><span>Suelo: </span>'+sl+'</div>';}
+    if(plc){htm+='<div class="prow2"><span>Plantas activas: </span>'+plc+'</div>';}
+    if(ob){htm+='<div class="pobs">'+ob+'</div>';}
+    htm+='<div class="pdiv"></div>';
+    htm+='<div class="prow"><span>Producci&#243;n</span><strong>'+kg+'</strong></div>';
+    htm+='<div class="prow"><span>Cosecha</span><strong>'+tn+'</strong></div>';
+    htm+='<div class="prow"><span>Superficie</span><strong>'+ha+'</strong></div>';
+    layer.bindPopup(htm,{maxWidth:250,closeButton:false});
+    function hl(){
+      if(mode==='plantas'){const v=PLANTAS_DATA[p.nombre];return{fillColor:plantasColor(v),fillOpacity:0.95,color:'#c8a96e',weight:2.5};}
+      if(mode==='riego'){return{fillColor:riegoColor(p.riego),fillOpacity:0.95,color:'#c8a96e',weight:2.5};}
+      if(mode==='poda'){return{fillColor:podaColor(p.poda_kg_pl),fillOpacity:0.95,color:'#c8a96e',weight:2.5};}
+      if(mode==='ckg'){return{fillColor:cosechaKgPlColor(p.cosecha_kg_pl),fillOpacity:0.95,color:'#c8a96e',weight:2.5};}
+      if(mode==='var'){return{fillColor:variedadColor(p.variedad),fillOpacity:0.95,color:'#c8a96e',weight:2.5};}
+      if(mode==='rkg'){const bk=getRango(p.kg_ha);return RANGOS_CER.has(bk)?{fillColor:rangoColor(bk),fillOpacity:0.95,color:'#c8a96e',weight:2.5}:{fillColor:'#ccc',fillOpacity:0.3,color:'#aaa',weight:1};}
+      return {fillColor:p.color||'#888',fillOpacity:0.92,color:'#c8a96e',weight:2.5};
+    }
+    layer.on('click mouseover',function(){this.setStyle(hl());this.openPopup();});
+    layer.on('mouseout',function(){
+      if(mode==='plantas'){const v=PLANTAS_DATA[p.nombre];this.setStyle({fillColor:plantasColor(v),fillOpacity:0.82,color:'#fff',weight:1.5});}
+      else if(mode==='riego'){this.setStyle({fillColor:riegoColor(p.riego),fillOpacity:0.82,color:'#fff',weight:1.5});}
+      else if(mode==='poda'){this.setStyle({fillColor:podaColor(p.poda_kg_pl),fillOpacity:0.82,color:'#fff',weight:1.5});}
+      else if(mode==='ckg'){this.setStyle({fillColor:cosechaKgPlColor(p.cosecha_kg_pl),fillOpacity:0.82,color:'#fff',weight:1.5});}
+      else if(mode==='var'){this.setStyle({fillColor:variedadColor(p.variedad),fillOpacity:0.82,color:'#fff',weight:1.5});}
+      else if(mode==='rkg'){const bk=getRango(p.kg_ha);if(RANGOS_CER.has(bk)){this.setStyle({fillColor:rangoColor(bk),fillOpacity:0.82,color:'#fff',weight:1.5});}else{this.setStyle({fillColor:'#ccc',fillOpacity:0.25,color:'#aaa',weight:1});}}
+      else this.setStyle(sP(feat));
+      this.closePopup();
+    });
+  }
+}).addTo(map);
+
+// Etiquetas de nombre por cuartel
+const labelGroup=L.layerGroup().addTo(map);
+function cosechaKgPlColor(v){
+  if(v==null)return'#444';
+  if(v>=6)return'#1e823c';
+  if(v<1)return'#b62615';
+  const stops=[[1,[182,38,21]],[1.5,[194,72,29]],[2,[210,123,40]],[2.5,[218,176,56]],
+               [3,[215,197,58]],[3.5,[185,188,67]],[4,[151,186,75]],[4.5,[96,166,73]],
+               [5,[58,145,65]],[6,[30,130,60]]];
+  for(let i=0;i<stops.length-1;i++){
+    const[t0,c0]=stops[i],[t1,c1]=stops[i+1];
+    if(v>=t0&&v<t1){const t=(v-t0)/(t1-t0);
+      return'#'+[0,1,2].map(j=>Math.round(c0[j]+(c1[j]-c0[j])*t).toString(16).padStart(2,'0')).join('');}
+  }
+  return'#1e823c';
+}
+function variedadColor(v){
+  const m={'Cabernet Sauvignon':'#C62828','Carmenere':'#F57F17','Syrah':'#4527A0','Merlot':'#0D47A1','Cabernet Franc':'#2E7D32','Malbec':'#AD1457','Tintorera':'#37474F','Chardonnay':'#F9A825','Gewurztraminer':'#00838F','Sauvignon Blanc':'#558B2F','Mouvedre':'#BF360C','Nebiolo':'#6A1B9A'};
+  return m[v]||'#444';
+}
+const RANGOS_CER=new Set([6000,7000,9000,10000,11000,12000,13000,14000,15000,16000,17000,19000,20000,26000]);
+function getRango(v){return Math.floor(v/1000)*1000;}
+function rangoColor(bk){
+  const min=6000,max=26000;
+  if(bk>=max)return'#1e823c';
+  if(bk<min)return'#b62615';
+  const pct=(bk-min)/(max-min);
+  const stops=[[0,[182,38,21]],[0.15,[210,107,37]],[0.30,[220,163,56]],[0.50,[168,187,71]],[0.70,[58,145,65]],[1.0,[30,130,60]]];
+  for(let i=1;i<stops.length;i++){
+    if(pct<=stops[i][0]){
+      const t=(pct-stops[i-1][0])/(stops[i][0]-stops[i-1][0]);
+      const a=stops[i-1][1],b=stops[i][1];
+      return'rgb('+Math.round(a[0]+(b[0]-a[0])*t)+','+Math.round(a[1]+(b[1]-a[1])*t)+','+Math.round(a[2]+(b[2]-a[2])*t)+')';
+    }
+  }
+  return'#1e823c';
+}
+function buildRangoLegend(){
+  const div=document.getElementById('rkg-items');
+  if(!div)return;
+  const bkts=[6000,7000,9000,10000,11000,12000,13000,14000,15000,16000,17000,19000,20000,26000];
+  div.innerHTML=bkts.map(bk=>{
+    const col=rangoColor(bk);
+    const lo=Math.round(bk/1000),hi=Math.round((bk+999)/1000);
+    const ck=RANGOS_CER.has(bk)?'checked':'';
+    return'<div class="li"><input type="checkbox" class="rkg-cb" '+ck+' onchange="toggleRango('+bk+',this)"><div class="ls" style="background:'+col+'"></div><span>'+lo+'\u2013'+hi+' t/ha</span></div>';
+  }).join('');
+}
+function toggleRango(bk,cb){
+  if(cb.checked)RANGOS_CER.add(bk);else RANGOS_CER.delete(bk);
+  updateRangoFilter();
+}
+function selectAllRangos(sel){
+  const bkts=[6000,7000,9000,10000,11000,12000,13000,14000,15000,16000,17000,19000,20000,26000];
+  if(sel)bkts.forEach(b=>RANGOS_CER.add(b));else RANGOS_CER.clear();
+  document.querySelectorAll('.rkg-cb').forEach(cb=>cb.checked=sel);
+  updateRangoFilter();
+}
+function updateRangoFilter(){
+  if(mode!=='rkg')return;
+  geo.eachLayer(l=>{
+    const bk=getRango(l.feature.properties.kg_ha);
+    if(RANGOS_CER.has(bk)){l.setStyle({fillColor:rangoColor(bk),fillOpacity:0.82,color:'#fff',weight:1.5});}
+    else{l.setStyle({fillColor:'#ccc',fillOpacity:0.25,color:'#aaa',weight:1});}
+  });
+}
+function buildLabels(){
+  labelGroup.clearLayers();
+  geo.eachLayer(function(layer){
+    const nm=layer.feature.properties.nombre;
+    const coords=layer.feature.geometry.type==='MultiPolygon'?layer.feature.geometry.coordinates.reduce((a,b)=>b[0].length>a[0].length?b:a)[0]:layer.feature.geometry.coordinates[0];const c=L.latLng(coords.reduce((s,p)=>s+p[1],0)/coords.length,coords.reduce((s,p)=>s+p[0],0)/coords.length);
+    L.marker(c,{
+      icon:L.divIcon({
+        className:'',
+        html:'<div class="qlabel">'+nm+'</div>',
+        iconSize:[0,0],
+        iconAnchor:[0,0]
+      }),
+      interactive:false,
+      zIndexOffset:600
+    }).addTo(labelGroup);
+  });
+}
+buildLabels();
+function setMode(m){
+  mode=m;
+  ['prod','plantas','riego','poda','ckg','var','rkg'].forEach(k=>{const b=document.getElementById('btn-'+k);if(b)b.classList.toggle('on',m===k);});
+  ['prod','plantas','riego','poda','ckg','var','rkg'].forEach(k=>{const el=document.getElementById('leg-'+k);if(el)el.style.display=m===k?'':'none';});
+  const _t={'prod':'kg / ha','plantas':'% Plantas','riego':'Sector Riego','poda':'Poda kg/pl','ckg':'Cos kg/pl','var':'Variedad','rkg':'Rangos kg/ha'};
+  document.getElementById('leg-title').textContent=_t[m]||'';
+  if(m==='plantas'){geo.eachLayer(l=>{const v=PLANTAS_DATA[l.feature.properties.nombre];l.setStyle({fillColor:plantasColor(v),fillOpacity:0.82,color:'#fff',weight:1.5});});}
+  else if(m==='riego'){geo.eachLayer(l=>{l.setStyle({fillColor:riegoColor(l.feature.properties.riego),fillOpacity:0.82,color:'#fff',weight:1.5});});}
+  else if(m==='poda'){geo.eachLayer(l=>{l.setStyle({fillColor:podaColor(l.feature.properties.poda_kg_pl),fillOpacity:0.82,color:'#fff',weight:1.5});});}
+  else if(m==='ckg'){geo.eachLayer(l=>{l.setStyle({fillColor:cosechaKgPlColor(l.feature.properties.cosecha_kg_pl),fillOpacity:0.82,color:'#fff',weight:1.5});});}
+  else if(m==='var'){geo.eachLayer(l=>{l.setStyle({fillColor:variedadColor(l.feature.properties.variedad),fillOpacity:0.82,color:'#fff',weight:1.5});});}
+  else if(m==='rkg'){buildRangoLegend();updateRangoFilter();}
+  else geo.setStyle(sP);
+  lbl.setOpacity(0.5);
+}
+setMode('prod');
+</script>
+</body>
+</html>
